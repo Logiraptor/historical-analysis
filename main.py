@@ -8,35 +8,62 @@ def main():
 
     client = docker.from_env()
 
-    runner = Runner(client, image, user_cmd)
+    runner = Runner(client, image, [
+        LineCountAnalyzer(),
+        DiskUsageAnalyzer(),
+    ])
     runner.analyze()
 
 
+class SimpleCollector:
+    def init(self):
+        return []
+
+    def process(self, prev, output):
+        return prev + [output.strip()]
+
+
+class DiskUsageAnalyzer(SimpleCollector):
+    def command(self, rev):
+        return "du -hc | tail -1"
+
+
+class LineCountAnalyzer(SimpleCollector):
+    def command(self, rev):
+        return "find . | grep -v git | xargs cat | wc -l"
+
+
 class Runner:
-    def __init__(self, client, image, user_cmd):
+    def __init__(self, client, image, analyzers):
         self.client = client
         self.image = image
-        self.user_cmd = user_cmd
+        self.analyzers = analyzers
 
     def analyze(self):
         rev_list = self._run_on_image(
             "git rev-list --reverse HEAD"
         ).split("\n")
 
-        print rev_list
+        outputs = []
 
         cons = []
-        for rev in rev_list:
-            cmd = self._format_user_cmd(rev)
-            con = self._run_on_image(cmd, detach=True)
-            cons.append(con)
+        for an in self.analyzers:
+            output = reduce(self.process(an), rev_list, an.init())
+            outputs.append(output)
 
-        for c in cons:
-            c.reload()
-            print c.logs()
+        for output in outputs:
+            print output
 
-    def _format_user_cmd(self, rev):
-        return "/bin/bash -c 'git reset --hard {} && {}'".format(rev, self.user_cmd)
+    def process(self, analyzer):
+        def inner(prev, rev):
+            cmd = self._format_user_cmd(rev, analyzer.command(rev))
+            output = self._run_on_image(cmd)
+            return analyzer.process(prev, output)
+
+        return inner
+
+    def _format_user_cmd(self, rev, cmd):
+        return "/bin/bash -c 'git reset --hard {} > /dev/null && {}'".format(rev, cmd)
 
     def _run_on_image(self, cmd, **kwargs):
         return self.client.containers.run(self.image, command=cmd, **kwargs)
