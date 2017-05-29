@@ -13,13 +13,27 @@ class Analysis(object):
         raise NotImplementedError()
 
 
-class BashAnalysis(Analysis):
-    def execute(self, ctx):
-        output = ctx.run(self.command())
-        return self.parse_result(output)
+class BashContext(object):
+    def __init__(self, ctx):
+        self.ctx = ctx
 
-    def command(self):
-        return "bash -c '{}'".format(self.bash_script())
+    def run(self, cmd, **kwargs):
+        cmd = "bash -c '{}'".format(cmd)
+        return self.ctx.run(cmd, **kwargs)
+
+    @classmethod
+    def wrap(cls, execute):
+        def execute_with_bash(self, ctx):
+            return execute(self, BashContext(ctx))
+
+        return execute_with_bash
+
+
+class BashAnalysis(Analysis):
+    @BashContext.wrap
+    def execute(self, ctx):
+        output = ctx.run(self.bash_script())
+        return self.parse_result(output)
 
     def bash_script(self):
         raise NotImplementedError()
@@ -28,16 +42,22 @@ class BashAnalysis(Analysis):
         raise NotImplementedError()
 
 
-class RelevantFileAnalysis(BashAnalysis):
+class RelevantFileAnalysis(Analysis):
     def __init__(self, extension):
         self.extension = extension
 
-    def bash_script(self):
-        return r"find . -not -path '*/\.*' -type f | grep {}$ | {}".format(self.extension, self.pipeline())
+    @BashContext.wrap
+    def list_files(self, ctx):
+        output = ctx.run(
+            r"find . -not -path '*/\.*' -type f | grep {}$".format(self.extension))
+        return output.split(b"\n")[:-1]
 
-    def pipeline(self):
+    def execute(self, ctx):
+        files = self.list_files(ctx)
+        return self.process_files(ctx, files)
+
+    def process_files(self, ctx, files):
         raise NotImplementedError()
-
 
 # class Pylint(RelevantFileAnalysis):
 #     def __init__(self):
@@ -52,12 +72,23 @@ class RelevantFileAnalysis(BashAnalysis):
 #         return float(match.group("score"))
 
 
-class FileCountAnalysis(RelevantFileAnalysis):
-    def pipeline(self):
-        return r"wc -l"
+class FileNameAnalysis(RelevantFileAnalysis):
+    def process_files(self, ctx, files):
+        return {'filenames': files}
 
-    def parse_result(self, output):
-        return {'files': int(output.strip())}
+
+class FileCountAnalysis(RelevantFileAnalysis):
+    def process_files(self, ctx, files):
+        return {'files': len(files)}
+
+
+class LineCountAnalysis(RelevantFileAnalysis):
+    def process_files(self, ctx, files):
+        ctx = BashContext(ctx)
+        file_output = " ".join(files)
+        wc_output = ctx.run("wc -l {} | tail -1".format(file_output))
+        count = re.search(r"(?P<count>\d+)", wc_output).group("count")
+        return {'lines': int(count)}
 
 
 class DiskUsageAnalysis(BashAnalysis):
@@ -66,14 +97,6 @@ class DiskUsageAnalysis(BashAnalysis):
 
     def parse_result(self, output):
         return {'file_size': output.strip()}
-
-
-class LineCountAnalysis(RelevantFileAnalysis):
-    def pipeline(self):
-        return "xargs cat | wc -l"
-
-    def parse_result(self, output):
-        return {'lines': int(output.strip())}
 
 
 class DiffSizeAnalalysis(BashAnalysis):

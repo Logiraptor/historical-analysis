@@ -15,6 +15,8 @@ RUN pip install pandas
 
 RUN apt-get install -y git
 
+RUN pip install pylint
+
 ADD . /app
 WORKDIR /app
 
