@@ -1,0 +1,11 @@
+# Historical Analysis
+
+This repo contains code to perform analysis on every commit in a git repo.
+
+This is accomplished using docker as follows:
+
+1. You create a docker image containing the git repo and any tools required to do the analysis.
+2. The tool iterates through all commits in the repo, commiting a new docker image for each.
+3. For each image, a user specified set of tools are run in a container created from that image.
+4. The results are collected and written to a csv file
+5. The csv is copied from the master container to the host machine for further analysis
