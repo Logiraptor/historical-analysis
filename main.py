@@ -127,6 +127,8 @@ class Runner(object):
                 except Exception as e:
                     print "Error: ", e.message
 
+            self.client.images.prune({'dangling': True})
+            self.client.containers.prune()
             outputs.append(row)
 
         return pandas.DataFrame(outputs)
