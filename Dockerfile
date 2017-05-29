@@ -11,6 +11,7 @@ RUN curl -fsSLO https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSI
 RUN apt-get install -y python-pip
 
 RUN pip install docker
+RUN pip install pandas
 
 ADD . /app
 WORKDIR /app
