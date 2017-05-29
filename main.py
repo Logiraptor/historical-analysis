@@ -4,7 +4,6 @@ This module performs analysis on git repos.
 
 import collections
 import re
-import time
 import sys
 
 import docker
@@ -17,8 +16,10 @@ def main():
     client = docker.from_env()
 
     runner = Runner(client, image, [
-        LineCountAnalyzer(),
-        DiskUsageAnalyzer(),
+        LineCountAnalysis("py"),
+        DiskUsageAnalysis(),
+        DiffSizeAnalalysis(),
+        FileCountAnalysis("py"),
     ])
 
     results = runner.analyze()
@@ -29,21 +30,61 @@ Revision = collections.namedtuple("Revision", [
     "git_hash", "date", "description", "author"
 ])
 
+# Day of week of commit
+# Time of day of commit
+# 'velocity'
+# number of files
 
-class DiskUsageAnalyzer(object):
+
+class BashAnalysis(object):
     def command(self):
-        return "bash -c 'du -hc | tail -1'"
+        return "bash -c '{}'".format(self.bash_script())
+
+    def bash_script(self):
+        raise NotImplementedError()
+
+
+class RelevantFileAnalysis(BashAnalysis):
+    def __init__(self, extension):
+        self.extension = extension
+
+    def bash_script(self):
+        return r"find . -not -path '*/\.*' -type f | grep {}$ | {}".format(self.extension, self.pipeline())
+
+    def pipeline(self):
+        raise NotImplementedError()
+
+
+class FileCountAnalysis(RelevantFileAnalysis):
+    def pipeline(self):
+        return r"wc -l"
+
+    def parse_result(self, output):
+        return {'files': int(output.strip())}
+
+
+class DiskUsageAnalysis(BashAnalysis):
+    def bash_script(self):
+        return "du -hc | tail -1"
 
     def parse_result(self, output):
         return {'file_size': output.strip()}
 
 
-class LineCountAnalyzer(object):
-    def command(self):
-        return "bash -c 'find . | grep -v git | xargs cat | wc -l'"
+class LineCountAnalysis(RelevantFileAnalysis):
+    def pipeline(self):
+        return "xargs cat | wc -l"
 
     def parse_result(self, output):
         return {'lines': int(output.strip())}
+
+
+class DiffSizeAnalalysis(BashAnalysis):
+    def bash_script(self):
+        return "git show | wc -l"
+
+    def parse_result(self, output):
+        return {'diff_size': int(output.strip())}
 
 
 class Runner(object):
