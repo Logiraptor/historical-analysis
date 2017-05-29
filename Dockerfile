@@ -13,6 +13,8 @@ RUN apt-get install -y python-pip
 RUN pip install docker
 RUN pip install pandas
 
+RUN apt-get install -y git
+
 ADD . /app
 WORKDIR /app
 

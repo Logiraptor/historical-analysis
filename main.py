@@ -6,10 +6,11 @@ import collections
 import re
 import docker
 import pandas
+import time
 
 
 def main():
-    image = "repo"
+    image = "hist"
 
     client = docker.from_env()
 
@@ -17,7 +18,9 @@ def main():
         LineCountAnalyzer(),
         DiskUsageAnalyzer(),
     ])
-    runner.analyze()
+
+    results = runner.analyze()
+    results.to_csv('output.csv')
 
 
 Revision = collections.namedtuple("Revision", [
@@ -56,23 +59,33 @@ class Runner(object):
         """
         analyze creates a docker image for every commit in a repo,
         then runs a set of analyzers against those images
+
+        returns a pandas.DataFrame with the results
         """
         outputs = []
         rev_list = self.get_revision_list()
 
-        for revision in rev_list:
+        for i, revision in enumerate(rev_list):
             image_tag = self.create_revision_container(revision)
             row = revision._asdict()
             for analyzer in self.analyzers:
+
+                print "Running {} on commit {} ({}/{})".format(
+                    type(analyzer).__name__,
+                    revision.git_hash,
+                    i + 1, len(rev_list))
+
                 cmd = analyzer.command()
                 output = self.client.containers.run(image_tag, cmd)
-                result = analyzer.parse_result(output)
-                row.update(result)
+                try:
+                    result = analyzer.parse_result(output)
+                    row.update(result)
+                except Exception as e:
+                    print "Error: ", e.message
+
             outputs.append(row)
 
-        data_frame = pandas.DataFrame(outputs)
-
-        print data_frame
+        return pandas.DataFrame(outputs)
 
     def get_revision_list(self):
         """
