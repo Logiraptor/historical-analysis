@@ -4,9 +4,11 @@ This module performs analysis on git repos.
 
 import collections
 import re
+import time
+import sys
+
 import docker
 import pandas
-import time
 
 
 def main():
@@ -74,6 +76,7 @@ class Runner(object):
                     type(analyzer).__name__,
                     revision.git_hash,
                     i + 1, len(rev_list))
+                sys.stdout.flush()
 
                 cmd = analyzer.command()
                 output = self.client.containers.run(image_tag, cmd)
