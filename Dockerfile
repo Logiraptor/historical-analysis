@@ -17,6 +17,10 @@ RUN apt-get install -y git
 
 RUN pip install pylint
 
+RUN pip install --upgrade pip
+RUN pip install jupyter
+RUN pip install matplotlib
+
 ADD . /app
 WORKDIR /app
 

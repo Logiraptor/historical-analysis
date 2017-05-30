@@ -2,9 +2,11 @@ import collections
 import sys
 import re
 import pandas
+import numpy as np
+
 
 Revision = collections.namedtuple("Revision", [
-    "git_hash", "date", "description", "author"
+    "git_hash", "timestamp", "description", "author"
 ])
 
 
@@ -56,7 +58,15 @@ class Runner(object):
             self.client.containers.prune()
             outputs.append(row)
 
-        return pandas.DataFrame(outputs)
+        frame = pandas.DataFrame(outputs)
+
+        frame['date'] = pandas.to_datetime(frame['timestamp'], unit='s')
+        first_commit_date = frame['date'].min()
+
+        frame['week'] = ((frame['date'] - first_commit_date) /
+                         pandas.Timedelta('7 days')).apply(np.floor)
+
+        return frame
 
     def get_revision_list(self):
         """
@@ -75,7 +85,7 @@ class Runner(object):
             match = re.match(regex, rev)
             revisions.append(Revision(
                 git_hash=match.group("hash"),
-                date=match.group("timestamp"),
+                timestamp=match.group("timestamp"),
                 description=match.group("subject"),
                 author=match.group("email"),
             ))

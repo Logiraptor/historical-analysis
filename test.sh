@@ -1,7 +1,6 @@
 #!/bin/bash
 
 docker build -t hist .
-docker build -t repo ../repo
 
 docker run --name analysis-master -v /var/run/docker.sock:/var/run/docker.sock hist python main.py $@
 
