@@ -8,7 +8,7 @@ import pandas
 from analysis import Runner
 from built_in_analysis import LineCountAnalysis, DiskUsageAnalysis, DiffSizeAnalalysis, FileCountAnalysis
 from built_in_analysis import FileNameAnalysis
-# from built_in_analysis import Pylint
+from built_in_analysis import Pylint
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
         DiffSizeAnalalysis(),
         FileCountAnalysis("py"),
         FileNameAnalysis("py"),
-        # Pylint(),
+        Pylint(),
     ])
 
     results = runner.analyze()

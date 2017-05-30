@@ -6,6 +6,7 @@
 # number of files
 
 import re
+import docker
 
 
 class Analysis(object):
@@ -59,17 +60,19 @@ class RelevantFileAnalysis(Analysis):
     def process_files(self, ctx, files):
         raise NotImplementedError()
 
-# class Pylint(RelevantFileAnalysis):
-#     def __init__(self):
-#         super(Pylint, self).__init__("py")
 
-#     def pipeline(self):
-#         return r"xargs pylint"
+class Pylint(RelevantFileAnalysis):
+    def __init__(self):
+        super(Pylint, self).__init__("py")
 
-#     def parse_result(self, output):
-#         match = re.match(
-#             r"Your code has been rated at (?P<score>\d+(.\d+)?)/10", output)
-#         return float(match.group("score"))
+    def process_files(self, ctx, files):
+        ctx = BashContext(ctx)
+        file_output = " ".join(files)
+
+        pylint_output = ctx.run("pylint {} || true".format(file_output))
+        match = re.search(
+            r"Your code has been rated at (?P<score>\d+(.\d+)?)/10", pylint_output)
+        return {'pylint': float(match.group('score'))}
 
 
 class FileNameAnalysis(RelevantFileAnalysis):
