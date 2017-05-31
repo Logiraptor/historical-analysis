@@ -50,7 +50,7 @@ class RelevantFileAnalysis(Analysis):
     @BashContext.wrap
     def list_files(self, ctx):
         output = ctx.run(
-            r"find . -not -path '*/\.*' -type f | grep {}$".format(self.extension))
+            r'find . -not -path "*/\.*" -type f | grep {}$'.format(self.extension))
         return output.split(b"\n")[:-1]
 
     def execute(self, ctx):
